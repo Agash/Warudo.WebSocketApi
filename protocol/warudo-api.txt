@@ -1,0 +1,71 @@
+# The Warudo WebSocket API: JSON-RPC 2.0 methods, one per line, read by Warudo.WebSocketApi.Generators to emit
+# both the plugin's dispatcher (IWarudoApi plus routing) and Warudo.Client's typed methods.
+#
+# method | parameters | result | summary
+#
+# A parameter or result field is type:name, with type string, int, double, bool, json (any JSON value),
+# guid, or a list type[] of those. An optional parameter ends in ?. A result of "-" returns nothing; a
+# result with one field returns that value.
+#
+# These are the primitives: every asset, node and blueprint, core or mod, is reachable through them.
+# Typed per-type wrappers (a camera's field of view, a prop node's inputs) are generated separately
+# from the type list scene.assetTypes and scene.nodeTypes return.
+
+api.version | | json:version | The plugin's version, its protocol version, and Warudo's.
+
+scene.get | | json:scene | The opened scene: its name, assets (id, name, type id, type title, active) and blueprints (id, name, enabled).
+scene.list | | json:scenes | The saved scenes, each with its name and last modified time (Unix milliseconds).
+scene.open | string:name | - | Opens a saved scene.
+scene.save | | - | Saves the opened scene.
+scene.selection | | json:selection | The asset and blueprint selected in the editor.
+scene.assetTypes | | json:types | The asset types installed, core and mod, with their data inputs and triggers.
+scene.nodeTypes | | json:types | The node types installed, core and mod, with their data inputs, outputs and flow ports.
+
+plugin.list | | json:plugins | The plugins loaded: id, name, version and author.
+plugin.message | string:pluginId string:action string?:payload | - | Sends a message to a plugin, as Warudo's own plugin messages do.
+
+asset.add | string:typeId string?:name | guid:assetId | Adds an asset of a type to the opened scene.
+asset.remove | guid:assetId | - | Removes an asset.
+asset.rename | guid:assetId string:name | - | Renames an asset.
+asset.export | guid:assetId | json:asset | An asset in Warudo's serialized form, as the editor exports it.
+asset.import | json:asset | guid:assetId | Adds an asset from its serialized form under a new id.
+
+entity.get | guid:entityId | json:entity | One asset, node or plugin: its type, data inputs with values, and triggers.
+entity.getInput | guid:entityId string:key | json:value | A data input's current value.
+entity.setInput | guid:entityId string:key json:value | - | Sets a data input, as editing it in Warudo does.
+entity.resetInput | guid:entityId string:key | - | Resets a data input to its default.
+entity.invokeTrigger | guid:entityId string:trigger | - | Invokes a trigger (a button in the asset's or node's panel).
+entity.watch | guid:entityId string[]?:keys | - | Sends entity.inputChanged when one of the data inputs changes (all of them when keys is omitted).
+entity.unwatch | guid:entityId | - | Stops watching an entity.
+
+node.run | string:typeId json?:inputs string?:flowInput | json:outputs | Runs a node type once with the given inputs through its flow input (Enter by default) and returns its data outputs.
+
+blueprint.export | guid:blueprintId | json:blueprint | A blueprint in Warudo's serialized form: nodes, connections and settings.
+blueprint.import | json:blueprint | guid:blueprintId | Adds a blueprint from its serialized form under a new id.
+blueprint.create | string:name | guid:blueprintId | Adds an empty blueprint.
+blueprint.remove | guid:blueprintId | - | Removes a blueprint.
+blueprint.rename | guid:blueprintId string:name | - | Renames a blueprint.
+blueprint.setEnabled | guid:blueprintId bool:enabled | - | Enables or disables a blueprint.
+blueprint.addNode | guid:blueprintId string:typeId double?:x double?:y | guid:nodeId | Adds a node of a type; set its inputs with entity.setInput.
+blueprint.removeNode | guid:blueprintId guid:nodeId | - | Removes a node and its connections.
+blueprint.connectFlow | guid:blueprintId guid:fromNode string:fromPort guid:toNode string:toPort | bool:connected | Connects a flow output to a flow input; false when it would form a cycle.
+blueprint.disconnectFlow | guid:blueprintId guid:fromNode string:fromPort guid:toNode string:toPort | - | Removes a flow connection.
+blueprint.connectData | guid:blueprintId guid:fromNode string:fromPort guid:toNode string:toPort | bool:connected | Connects a data output to a data input; false when it would form a cycle.
+blueprint.disconnectData | guid:blueprintId guid:fromNode string:fromPort guid:toNode string:toPort | - | Removes a data connection.
+blueprint.invokeFlow | guid:blueprintId guid:nodeId string?:flowInput | - | Runs a blueprint from a node's flow input (Enter by default).
+blueprint.fireEvent | string:name string[]?:texts double[]?:numbers | int:receivers | Fires every On WebSocket API Event node named name, passing the texts and numbers; returns how many received it.
+
+character.expressions | guid:characterId | string[]:names | The expressions a character has.
+character.activeExpressions | guid:characterId | string[]:names | The expressions a character shows now.
+character.setExpression | guid:characterId string:name bool:active bool?:transient | - | Enters or exits an expression; transient ones end when the trigger stops.
+character.exitAllExpressions | guid:characterId bool?:fade | - | Exits every expression, fading by default.
+
+gameObject.hierarchy | guid:assetId int?:depth | json:hierarchy | The child objects under an asset: name, path, active, and their blend shapes and materials.
+gameObject.setActive | guid:assetId string:path bool:active | - | Shows or hides a child object by its path under the asset.
+gameObject.setBlendShape | guid:assetId string:path string:name double:weight | - | Sets a blend shape's weight (0 to 100) on a child's skinned mesh.
+gameObject.setMaterialProperty | guid:assetId string:path string:property json:value int?:materialIndex | - | Sets a material property (a number, a color as [r,g,b,a], or a vector) on a child's renderer.
+
+ui.toast | string:header string:message string?:severity double?:seconds | - | Shows a toast in Warudo (severity success, info, warning or error).
+
+events.subscribe | string[]:events | string[]:subscribed | Subscribes this connection to event notifications (scene.changed, entity.inputChanged, blueprint.event) and returns the ones accepted.
+events.unsubscribe | string[]:events | - | Stops event notifications.

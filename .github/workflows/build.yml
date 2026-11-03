@@ -1,0 +1,182 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+
+name: Build, Test, and Publish Warudo.Client
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  DOTNET_NOLOGO: true
+  NuGetDirectory: ${{ github.workspace }}/nuget
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build_and_test:
+    name: Build, Test, and Pack
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Signing the provenance statement for the packages this job produces. Stated explicitly
+      # because attestation needs more than the read-only default.
+      id-token: write
+      attestations: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v6
+      with:
+        global-json-file: global.json
+
+    - name: Restore dependencies
+      run: dotnet restore Warudo.WebSocketApi.slnx
+
+    - name: Check formatting
+      run: |
+        dotnet tool restore
+        dotnet csharpier check .
+
+    - name: Build solution
+      run: dotnet build Warudo.WebSocketApi.slnx --configuration Release --no-restore
+
+    - name: Run unit tests
+      run: dotnet test --project ${{ github.workspace }}/tests/Warudo.WebSocketApi.Tests/Warudo.WebSocketApi.Tests.csproj --configuration Release --no-build -- --coverage --coverage-settings coverage.settings.xml --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+
+    - name: Summarize coverage
+      # Renders the cobertura totals into the run summary. Uploading the raw XML alone means nobody
+      # ever looks at it; this puts the numbers on the run page itself.
+      if: always()
+      shell: bash
+      run: |
+        python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+        import glob, xml.etree.ElementTree as ET
+
+        files = sorted(glob.glob('**/coverage.cobertura.xml', recursive=True))
+        if not files:
+            print('### Coverage\n\nNo coverage report was produced.')
+            raise SystemExit(0)
+
+        # Multi-targeted runs emit one report per TFM; they cover the same code, so report the first
+        # and note how many were produced rather than double-counting.
+        root = ET.parse(files[0]).getroot()
+
+        def pct(attr):
+            return float(root.get(attr) or 0) * 100
+
+        print('### Coverage\n')
+        print('| Metric | Covered | Total | Rate |')
+        print('| --- | ---: | ---: | ---: |')
+        print(f"| Lines | {root.get('lines-covered')} | {root.get('lines-valid')} | {pct('line-rate'):.1f}% |")
+        print(f"| Branches | {root.get('branches-covered')} | {root.get('branches-valid')} | {pct('branch-rate'):.1f}% |")
+
+        packages = root.findall('.//package')
+        if packages:
+            print('\n<details><summary>Per assembly</summary>\n')
+            print('| Assembly | Lines | Branches |')
+            print('| --- | ---: | ---: |')
+            for p in sorted(packages, key=lambda p: p.get('name') or ''):
+                lr = float(p.get('line-rate') or 0) * 100
+                br = float(p.get('branch-rate') or 0) * 100
+                print(f"| {p.get('name')} | {lr:.1f}% | {br:.1f}% |")
+            print('\n</details>')
+
+        if len(files) > 1:
+            print(f"\n_{len(files)} reports produced (one per target framework); totals shown for `{files[0]}`._")
+        PY
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v7
+      with:
+        name: coverage
+        if-no-files-found: warn
+        retention-days: 7
+        path: '**/coverage.cobertura.xml'
+
+    - name: Native AOT publish of the client (smoke sample)
+      run: dotnet publish samples/Smoke/Smoke.cs --configuration Release --runtime linux-x64
+
+    - name: Pack packages
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+      run: dotnet pack Warudo.WebSocketApi.slnx --configuration Release --no-build --output ${{ env.NuGetDirectory }}
+
+    - name: Verify expected packages
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+      run: |
+        $expected = @(
+          'Warudo.Client'
+        )
+        $packed = Get-ChildItem "${{ env.NuGetDirectory }}" -Filter *.nupkg |
+          ForEach-Object { $_.Name -replace '\.\d+.*\.nupkg$', '' }
+        $missing = $expected | Where-Object { $_ -notin $packed }
+        if ($missing.Count -gt 0) {
+          throw "Missing expected packages: $($missing -join ', ')"
+        }
+        Write-Host "All $($expected.Count) expected packages verified."
+
+    - name: Attest build provenance
+      # Records, in a signed statement GitHub hosts, which workflow and which commit produced these
+      # exact package files. Anyone who downloads the package can verify it came from this repository
+      # rather than from someone who republished it under the same name.
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+      uses: actions/attest-build-provenance@v4
+      with:
+        subject-path: ${{ env.NuGetDirectory }}/*.nupkg
+    - name: Upload package artifact
+      if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v7
+      with:
+        name: nuget-package
+        if-no-files-found: error
+        retention-days: 1
+        path: ${{ env.NuGetDirectory }}/*.nupkg
+
+  publish_nuget:
+    name: Publish NuGet Packages
+    needs: [ build_and_test ]
+    if: (github.event_name == 'release' && github.event.action == 'published') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # Declaring an environment is what makes GitHub record a deployment, which is what
+    # surfaces the Deployments tab and the package link on the repo home page.
+    environment:
+      name: nuget.org
+      url: https://www.nuget.org/packages/Warudo.Client
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Download package artifact
+      uses: actions/download-artifact@v8
+      with:
+        name: nuget-package
+        path: ${{ env.NuGetDirectory }}
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v6
+
+    - name: NuGet login (OIDC trusted publisher)
+      id: login
+      uses: NuGet/login@v1
+      with:
+        user: Agash
+
+    - name: Publish packages
+      run: |
+        foreach ($file in (Get-ChildItem "${{ env.NuGetDirectory }}" -Recurse -Include *.nupkg)) {
+          Write-Host "Pushing package: $($file.FullName)"
+          dotnet nuget push $file --api-key "${{ steps.login.outputs.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json --skip-duplicate
+        }

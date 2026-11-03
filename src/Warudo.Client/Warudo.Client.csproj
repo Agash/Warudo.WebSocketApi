@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
+    <IsPackable>true</IsPackable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <PackageId>Warudo.Client</PackageId>
+    <Title>Warudo.Client</Title>
+    <Description>.NET client for the Warudo WebSocket API plugin: scene and entity access, data inputs, triggers, running any node type, blueprint events and character expressions over JSON-RPC 2.0. Native AOT compatible; generated from the plugin's protocol table.</Description>
+    <PackageTags>warudo;vtuber;3d;avatar;client;websocket;json-rpc</PackageTags>
+    <MinVerTagPrefix>v</MinVerTagPrefix>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <WarudoApiSide>Client</WarudoApiSide>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="WarudoApiSide" />
+    <AdditionalFiles Include="..\..\protocol\warudo-api.txt" />
+    <ProjectReference
+      Include="..\Warudo.WebSocketApi.Generators\Warudo.WebSocketApi.Generators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="MinVer" PrivateAssets="all" />
+    <PackageReference Include="DotNet.ReproducibleBuilds" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Warudo.WebSocketApi.Tests" />
+  </ItemGroup>
+</Project>

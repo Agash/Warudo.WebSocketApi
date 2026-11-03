@@ -1,0 +1,13 @@
+<Solution>
+    <Folder Name="/src/">
+        <Project Path="src/Warudo.Client/Warudo.Client.csproj" />
+        <Project Path="src/Warudo.WebSocketApi.Core/Warudo.WebSocketApi.Core.csproj" />
+        <Project Path="src/Warudo.WebSocketApi.Generators/Warudo.WebSocketApi.Generators.csproj" />
+    </Folder>
+    <Folder Name="/tests/">
+        <Project Path="tests/Warudo.WebSocketApi.Tests/Warudo.WebSocketApi.Tests.csproj" />
+    </Folder>
+    <Folder Name="/tools/">
+        <Project Path="tools/Warudo.ModPacker/Warudo.ModPacker.csproj" />
+    </Folder>
+</Solution>

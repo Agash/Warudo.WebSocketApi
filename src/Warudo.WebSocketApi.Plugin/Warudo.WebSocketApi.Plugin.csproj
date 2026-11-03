@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Built only where Warudo is installed: it compiles against Warudo's own assemblies, which are not
+    redistributable. build/package-plugin.ps1 builds it and packs the .warudo mod; CI builds and tests Core.
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>Agash.Warudo.WebSocketApi</AssemblyName>
+    <RootNamespace>Warudo.WebSocketApi</RootNamespace>
+    <WarudoApiSide>Server</WarudoApiSide>
+    <WarudoManaged Condition="'$(WarudoManaged)' == ''"
+      >C:\Program Files (x86)\Steam\steamapps\common\Warudo\Warudo_Data\Managed</WarudoManaged>
+    <!-- Warudo's mod loader takes one assembly with no debug symbols beside it. -->
+    <DebugType>none</DebugType>
+    <!-- Warudo's mod sandbox rejects the assembly, silently, when it carries AssemblyMetadata or
+         AssemblyCopyright attributes; it accepts the SDK's other assembly info attributes. -->
+    <GenerateRepositoryUrlAttribute>false</GenerateRepositoryUrlAttribute>
+    <Copyright />
+    <!-- Warudo's attribute model needs public fields and methods named as its ports. -->
+    <NoWarn>$(NoWarn);CA1051;CA1707;CA1720;CA1822;CA2007</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile
+      Include="..\Warudo.WebSocketApi.Core\**\*.cs"
+      Exclude="..\Warudo.WebSocketApi.Core\obj\**;..\Warudo.WebSocketApi.Core\bin\**"
+    />
+    <CompilerVisibleProperty Include="WarudoApiSide" />
+    <AdditionalFiles Include="..\..\protocol\warudo-api.txt" />
+    <ProjectReference
+      Include="..\Warudo.WebSocketApi.Generators\Warudo.WebSocketApi.Generators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="$(WarudoManaged)\Warudo.Core.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\Warudo.Plugins.Core.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\UnityEngine.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\UnityEngine.CoreModule.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\websocket-sharp.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\Newtonsoft.Json.dll" Private="false" />
+    <Reference Include="$(WarudoManaged)\UniTask.dll" Private="false" />
+  </ItemGroup>
+</Project>

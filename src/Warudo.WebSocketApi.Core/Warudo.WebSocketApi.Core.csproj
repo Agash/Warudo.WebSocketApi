@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Warudo loads plugins as .NET Standard 2.0 on its Mono runtime; the plugin compiles these sources in. -->
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Warudo.WebSocketApi</RootNamespace>
+    <WarudoApiSide>Server</WarudoApiSide>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="WarudoApiSide" />
+    <AdditionalFiles Include="..\..\protocol\warudo-api.txt" />
+    <ProjectReference
+      Include="..\Warudo.WebSocketApi.Generators\Warudo.WebSocketApi.Generators.csproj"
+      OutputItemType="Analyzer"
+      ReferenceOutputAssembly="false"
+      PrivateAssets="all"
+    />
+    <!-- Warudo ships Newtonsoft.Json 13; the plugin uses that copy, so nothing of this reference is deployed. -->
+    <PackageReference Include="Newtonsoft.Json" />
+  </ItemGroup>
+</Project>
