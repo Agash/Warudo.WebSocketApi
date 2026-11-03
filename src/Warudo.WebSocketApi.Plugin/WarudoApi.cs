@@ -315,11 +315,19 @@ internal sealed class WarudoApi : IWarudoApi
             }
 
             graph.Enabled = true;
-            graph.InvokeFlowAtInput(
-                node,
-                string.IsNullOrEmpty(flowInput) ? DefaultFlowInput : flowInput,
-                true
-            );
+            // Data-only nodes have no flow input; their outputs compute when read.
+            string flow = string.IsNullOrEmpty(flowInput) ? DefaultFlowInput : flowInput!;
+            if (node.FlowInputPortCollection.ContainsPort(flow))
+            {
+                graph.InvokeFlowAtInput(node, flow, true);
+            }
+            else if (!string.IsNullOrEmpty(flowInput))
+            {
+                throw new RpcException(
+                    RpcException.NotFound,
+                    $"Node type '{typeId}' has no flow input '{flowInput}'."
+                );
+            }
             JObject outputs = new();
             foreach (
                 KeyValuePair<
@@ -805,10 +813,9 @@ internal sealed class WarudoApi : IWarudoApi
     // Warudo's own serialized form, so every port type it knows (vectors, assets, enums) is accepted.
     private static void SetSerialized(Entity entity, DataInputPort port, JToken value)
     {
-        string serialized =
-            value.Type == JTokenType.String
-                ? value.ToString()
-                : value.ToString(Newtonsoft.Json.Formatting.None);
+        // Warudo's serialized form of every port type is JSON: a string arrives quoted, a number bare, an asset
+        // reference as its identifier object.
+        string serialized = value.ToString(Newtonsoft.Json.Formatting.None);
         port.SetSerializedValue(serialized, OpenedScene(), entity.StructuredDataParent);
     }
 
