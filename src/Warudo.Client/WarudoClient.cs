@@ -460,3 +460,16 @@ internal static class RpcValues
 [System.Text.Json.Serialization.JsonSerializable(typeof(JsonObject))]
 internal sealed partial class WarudoJsonContext
     : System.Text.Json.Serialization.JsonSerializerContext;
+
+/// <summary>The events <see cref="WarudoClient.EventsSubscribeAsync"/> accepts.</summary>
+public static class WarudoEvents
+{
+    /// <summary>Warudo opened a scene.</summary>
+    public const string SceneChanged = "scene.changed";
+
+    /// <summary>A watched data input changed (see <see cref="WarudoClient.EntityWatchAsync"/>).</summary>
+    public const string InputChanged = "entity.inputChanged";
+
+    /// <summary>A blueprint's Send WebSocket API Event node ran.</summary>
+    public const string BlueprintEvent = "blueprint.event";
+}
