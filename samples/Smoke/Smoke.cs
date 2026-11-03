@@ -86,3 +86,53 @@ await client.BlueprintRemoveAsync(copy);
 await client.BlueprintRemoveAsync(blueprint);
 await client.UiToastAsync("WebSocket API", "Smoke test passed", "success");
 Console.WriteLine("ok");
+
+// The generated typed layer.
+Warudo.Client.Assets.CameraAsset camera = new(
+    client,
+    Guid.Parse(
+        scene
+            .GetProperty("assets")
+            .EnumerateArray()
+            .First(a => a.GetProperty("typeTitle").GetString() == "CAMERA")
+            .GetProperty("id")
+            .GetString()!
+    )
+);
+double fieldOfView = await camera.GetFieldOfViewAsync();
+Warudo.Client.Assets.CameraAsset.CameraControlMode mode = await camera.GetControlModeAsync();
+Guid? focus = await camera.GetFocusCharacterAsync();
+await camera.SetFocusCharacterAsync(focus);
+Console.WriteLine(
+    $"typed camera: FieldOfView {fieldOfView}, ControlMode {mode}, FocusCharacter {focus} (set back {await camera.GetFocusCharacterAsync() == focus})"
+);
+
+Warudo.Client.Nodes.BooleanEqualNode.Outputs equal = await new Warudo.Client.Nodes.BooleanEqualNode
+{
+    A = true,
+    B = true,
+}.RunAsync(client);
+Console.WriteLine($"typed data node: true == true is {equal.Result}");
+Warudo.Client.Nodes.StringContainsNode.Outputs contains =
+    await new Warudo.Client.Nodes.StringContainsNode
+    {
+        A = "Hello Warudo",
+        B = "warudo",
+        IgnoreCase = true,
+    }.RunAsync(client);
+Console.WriteLine($"typed string node: contains is {contains.Result}");
+await new Warudo.Client.Nodes.ShowToastNode
+{
+    Header = "WebSocket API",
+    Caption = "Typed node run",
+    Severity = Warudo.Client.Nodes.ShowToastNode.ToastSeverity.Success,
+}.RunAsync(client);
+Console.WriteLine("typed flow node: ran Show Toast");
+
+Warudo.Client.Assets.PropAsset prop = await Warudo.Client.Assets.PropAsset.AddAsync(
+    client,
+    "WebSocket API smoke prop"
+);
+Console.WriteLine($"typed asset add: {prop.Id}, enabled {await prop.GetEnabledAsync()}");
+await prop.RemoveAsync();
+Console.WriteLine("typed ok");

@@ -110,6 +110,63 @@ public sealed class RoundTripTests
     }
 
     [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task TypedAsset_SendsWarudoSerializedForms()
+    {
+        FakeApi api = new();
+        await using Host host = await Host.StartAsync(api);
+        await using WarudoClient client = await host.ConnectAsync(
+            Token,
+            TestContext.CancellationToken
+        );
+        Warudo.Client.Assets.CameraAsset camera = new(client, Guid.NewGuid());
+        Guid character = Guid.NewGuid();
+
+        await camera.SetFieldOfViewAsync(40, TestContext.CancellationToken);
+        Assert.AreEqual("FieldOfView", api.LastKey);
+        Assert.AreEqual(40d, api.LastValue!.Value<double>());
+
+        await camera.SetControlModeAsync(
+            Warudo.Client.Assets.CameraAsset.CameraControlMode.Orbit,
+            TestContext.CancellationToken
+        );
+        Assert.AreEqual(2, api.LastValue!["value"]!.Value<int>());
+
+        await camera.SetFocusCharacterAsync(character, TestContext.CancellationToken);
+        Assert.AreEqual(character.ToString("D"), api.LastValue!["id"]!.ToString());
+        Assert.AreEqual(camera.Id, api.LastEntity);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task TypedNode_RunsWithItsTypeIdInputsAndFlow()
+    {
+        FakeApi api = new();
+        await using Host host = await Host.StartAsync(api);
+        await using WarudoClient client = await host.ConnectAsync(
+            Token,
+            TestContext.CancellationToken
+        );
+
+        Warudo.Client.Nodes.StringContainsNode.Outputs outputs =
+            await new Warudo.Client.Nodes.StringContainsNode { A = "Hello", B = "ell" }.RunAsync(
+                client,
+                ct: TestContext.CancellationToken
+            );
+        Assert.AreEqual(Warudo.Client.Nodes.StringContainsNode.NodeTypeId, api.LastNodeType);
+        Assert.AreEqual("Hello", api.LastInputs!["A"]!.ToString());
+        Assert.IsFalse(((JObject)api.LastInputs!).ContainsKey("IgnoreCase"));
+        Assert.IsNull(api.LastFlowInput);
+        Assert.IsTrue(outputs.Result);
+
+        _ = await new Warudo.Client.Nodes.ShowToastNode { Header = "Hi" }.RunAsync(
+            client,
+            ct: TestContext.CancellationToken
+        );
+        Assert.AreEqual(Warudo.Client.Nodes.ShowToastNode.FlowInputs.Enter, api.LastFlowInput);
+    }
+
+    [TestMethod]
     public async Task FaultingMethod_IsAnsweredAsAnInternalErrorAndReported()
     {
         Exception? reported = null;
@@ -214,6 +271,18 @@ public sealed class RoundTripTests
         {
             (LastEvent, LastTexts, LastNumbers) = (name, texts, numbers);
             return Task.FromResult(1);
+        }
+
+        public string? LastNodeType { get; private set; }
+
+        public JToken? LastInputs { get; private set; }
+
+        public string? LastFlowInput { get; private set; }
+
+        public override Task<JToken> NodeRunAsync(string typeId, JToken? inputs, string? flowInput)
+        {
+            (LastNodeType, LastInputs, LastFlowInput) = (typeId, inputs, flowInput);
+            return Task.FromResult<JToken>(new JObject { ["Result"] = true });
         }
 
         public override Task<JToken> SceneGetAsync() =>

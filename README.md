@@ -54,7 +54,36 @@ table and emits both the plugin's dispatcher and the client's typed methods, so 
 | Warudo UI | `ui.toast` |
 | Events | `events.subscribe`, `events.unsubscribe`: `scene.changed`, `entity.inputChanged`, `blueprint.event` |
 
-Data input values use Warudo's own serialized form, so every port type Warudo knows works, mod types included.
+Data input values use Warudo's own serialized form, which is JSON for every port type: strings quoted, numbers
+bare, enums as `{"value": n}`, asset references as `{"id": "..."}`. Every port type Warudo knows works, mod
+types included.
+
+## Typed assets and nodes
+
+On top of the generic methods, Warudo.Client has a typed class for each of Warudo's 54 asset types and 530
+node types, generated from [`schema/warudo-types.txt`](schema/warudo-types.txt):
+
+```csharp
+CameraAsset camera = new(warudo, cameraId);
+await camera.SetFieldOfViewAsync(40);
+await camera.SetControlModeAsync(CameraAsset.CameraControlMode.Orbit);
+await camera.SetFocusCharacterAsync(characterId);
+
+PropAsset prop = await PropAsset.AddAsync(warudo, "Confetti cannon");
+
+StringContainsNode.Outputs found = await new StringContainsNode { A = message, B = "!raid", IgnoreCase = true }.RunAsync(warudo);
+await new ShowToastNode { Header = "Raid", Caption = name, Severity = ShowToastNode.ToastSeverity.Success }.RunAsync(warudo);
+Guid node = await new ThrowPropNode { TargetType = ThrowPropNode.TargetTypeOption.Character, Character = characterId }.AddToBlueprintAsync(warudo, blueprintId);
+```
+
+`tools/SchemaExport` writes the table from a Warudo install's assemblies without running Warudo: every
+`[AssetType]` and `[NodeType]` with its `[DataInput]`, `[DataOutput]`, `[FlowInput]`, `[FlowOutput]` and
+`[Trigger]` members. After a Warudo update, re-export and rebuild. `--mods` adds installed mods' types for a
+local build. Ports a type adds at run time are not in the table and stay reachable through `entity.*`.
+
+```powershell
+dotnet run tools/SchemaExport/SchemaExport.cs -- [--warudo <install folder>] [--mods]
+```
 Inside Warudo, the **On WebSocket API Event** node fires for `blueprint.fireEvent`, and **Send WebSocket API
 Event** pushes `blueprint.event` to subscribed clients.
 

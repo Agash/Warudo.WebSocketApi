@@ -16,6 +16,7 @@
   <ItemGroup>
     <CompilerVisibleProperty Include="WarudoApiSide" />
     <AdditionalFiles Include="..\..\protocol\warudo-api.txt" />
+    <AdditionalFiles Include="..\..\schema\warudo-types.txt" />
     <ProjectReference
       Include="..\Warudo.WebSocketApi.Generators\Warudo.WebSocketApi.Generators.csproj"
       OutputItemType="Analyzer"

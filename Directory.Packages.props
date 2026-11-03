@@ -22,6 +22,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="DotNet.ReproducibleBuilds" Version="2.0.5" />
+    <PackageVersion Include="System.Reflection.MetadataLoadContext" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
     <PackageVersion Include="Spectre.Console" Version="0.57.2" />
